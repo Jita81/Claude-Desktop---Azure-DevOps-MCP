@@ -44,9 +44,9 @@ const argv = yargs(hideBin(process.argv))
   })
   .option("authentication", {
     alias: "a",
-    describe: "Type of authentication to use. Supported values are 'interactive', 'azcli' and 'env' (default: 'interactive')",
+    describe: "Type of authentication to use. Supported values are 'interactive', 'azcli', 'env', and 'pat' (default: 'interactive')",
     type: "string",
-    choices: ["interactive", "azcli", "env"],
+    choices: ["interactive", "azcli", "env", "pat"],
     default: defaultAuthenticationType,
   })
   .option("tenant", {
@@ -63,10 +63,13 @@ const orgUrl = "https://dev.azure.com/" + orgName;
 const domainsManager = new DomainsManager(argv.domains);
 export const enabledDomains = domainsManager.getEnabledDomains();
 
-function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAgentComposer: UserAgentComposer): () => Promise<azdev.WebApi> {
+function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAgentComposer: UserAgentComposer, authType: string): () => Promise<azdev.WebApi> {
   return async () => {
     const accessToken = await getAzureDevOpsToken();
-    const authHandler = azdev.getBearerHandler(accessToken);
+    // PATs use Basic auth, OAuth tokens use Bearer auth
+    const authHandler = authType === "pat" 
+      ? azdev.getPersonalAccessTokenHandler(accessToken)
+      : azdev.getBearerHandler(accessToken);
     const connection = new azdev.WebApi(orgUrl, authHandler, undefined, {
       productName: "AzureDevOps.MCP",
       productVersion: packageVersion,
@@ -91,7 +94,7 @@ async function main() {
 
   configurePrompts(server);
 
-  configureAllTools(server, authenticator, getAzureDevOpsClient(authenticator, userAgentComposer), () => userAgentComposer.userAgent, enabledDomains);
+  configureAllTools(server, authenticator, getAzureDevOpsClient(authenticator, userAgentComposer, argv.authentication), () => userAgentComposer.userAgent, enabledDomains);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

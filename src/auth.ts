@@ -52,6 +52,15 @@ class OAuthAuthenticator {
 
 function createAuthenticator(type: string, tenantId?: string): () => Promise<string> {
   switch (type) {
+    case "pat":
+      return async () => {
+        const pat = process.env.ADO_PAT;
+        if (!pat) {
+          throw new Error("ADO_PAT environment variable is not set. Please provide a Personal Access Token.");
+        }
+        return pat;
+      };
+
     case "azcli":
     case "env":
       if (type !== "env") {

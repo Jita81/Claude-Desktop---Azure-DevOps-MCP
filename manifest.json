@@ -1,0 +1,138 @@
+{
+  "manifest_version": "0.2",
+  "name": "azure-devops-mcp",
+  "display_name": "Azure DevOps MCP Server",
+  "version": "2.2.0",
+  "description": "MCP server for interacting with Azure DevOps - manage work items, repositories, pipelines, wikis, and more",
+  "long_description": "The Azure DevOps MCP Server brings Azure DevOps context directly to Claude. Access projects, work items, repositories, pull requests, pipelines, test plans, wikis, and advanced security features. Perfect for developers and teams using Azure DevOps who want to streamline their workflow with AI assistance.",
+  "author": {
+    "name": "Microsoft Corporation",
+    "url": "https://github.com/microsoft/azure-devops-mcp"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/azure-devops-mcp.git"
+  },
+  "homepage": "https://github.com/microsoft/azure-devops-mcp",
+  "documentation": "https://github.com/microsoft/azure-devops-mcp/blob/main/README.md",
+  "support": "https://github.com/microsoft/azure-devops-mcp/issues",
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js",
+        "${user_config.organization}"
+      ],
+      "env": {
+        "ADO_PAT": "${user_config.pat}"
+      }
+    }
+  },
+  "user_config": {
+    "organization": {
+      "type": "string",
+      "title": "Azure DevOps Organization",
+      "description": "Your Azure DevOps organization name (e.g., if your URL is https://dev.azure.com/contoso, enter 'contoso')",
+      "required": true
+    },
+    "pat": {
+      "type": "string",
+      "title": "Personal Access Token",
+      "description": "Your Azure DevOps Personal Access Token. This is required to authenticate API calls without opening a browser. Create one at: https://dev.azure.com/{your-org}/_usersSettings/tokens",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    {
+      "name": "core_list_projects",
+      "description": "Retrieve a list of projects in your Azure DevOps organization"
+    },
+    {
+      "name": "core_list_project_teams",
+      "description": "Retrieve a list of teams for a specified Azure DevOps project"
+    },
+    {
+      "name": "wit_my_work_items",
+      "description": "Retrieve work items relevant to the authenticated user"
+    },
+    {
+      "name": "wit_get_work_item",
+      "description": "Get a single work item by ID"
+    },
+    {
+      "name": "wit_create_work_item",
+      "description": "Create a new work item in a specified project"
+    },
+    {
+      "name": "wit_update_work_item",
+      "description": "Update a work item by ID with specified fields"
+    },
+    {
+      "name": "repo_list_repos_by_project",
+      "description": "Retrieve a list of repositories for a given project"
+    },
+    {
+      "name": "repo_list_pull_requests_by_project",
+      "description": "Retrieve a list of pull requests for a given project"
+    },
+    {
+      "name": "repo_create_pull_request",
+      "description": "Create a new pull request"
+    },
+    {
+      "name": "pipelines_get_builds",
+      "description": "Retrieve a list of builds for a given project"
+    },
+    {
+      "name": "pipelines_get_build_log",
+      "description": "Retrieve the logs for a specific build"
+    },
+    {
+      "name": "wiki_list_wikis",
+      "description": "Retrieve a list of wikis for an organization or project"
+    },
+    {
+      "name": "wiki_get_page_content",
+      "description": "Retrieve wiki page content"
+    },
+    {
+      "name": "wiki_create_or_update_page",
+      "description": "Create or update a wiki page with content"
+    },
+    {
+      "name": "search_code",
+      "description": "Search Azure DevOps Repositories for code"
+    },
+    {
+      "name": "search_workitem",
+      "description": "Search Azure DevOps Work Items"
+    },
+    {
+      "name": "testplan_list_test_plans",
+      "description": "Retrieve a list of test plans from an Azure DevOps project"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "Projects",
+      "description": "Lists all projects in the Azure DevOps organization",
+      "text": "Please list all projects in my Azure DevOps organization."
+    },
+    {
+      "name": "Teams",
+      "description": "Retrieves all teams for a given Azure DevOps project",
+      "arguments": ["project"],
+      "text": "Please list all teams for the {{project}} project."
+    },
+    {
+      "name": "getWorkItem",
+      "description": "Retrieves details for a specific Azure DevOps work item by ID",
+      "arguments": ["id", "project"],
+      "text": "Please get work item {{id}} from project {{project}}."
+    }
+  ]
+}

@@ -1,47 +1,86 @@
-# Contributing to Azure DevOps MCP Server
+# Contributing to Azure DevOps MCP with PAT Authentication
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/azure-devops-mcp)
+Thank you for your interest in contributing! 🎉
 
-Thank you for your interest in contributing to the Azure DevOps MCP Server! Your participation—whether through discussions, reporting issues, or suggesting improvements—helps us make the project better for everyone.
+## 🌟 How to Contribute
 
-> 🚨 If you would like to contribute, please carefully follow the guidelines below. Pull requests that do not adhere to this process will be closed without review.
+### Reporting Issues
 
-## 🏆 Expectations
+- Check if the issue already exists
+- Provide clear steps to reproduce
+- Include your environment (OS, Node version, Claude Desktop version)
+- For PAT-specific issues, include any error messages (but **never** include your actual PAT!)
 
-As noted in the `README.md`, we aim to keep the tools in this MCP Server simple and focused on specific scenarios. If you wish to contribute or suggest new tools, please keep this in mind. We do not plan to introduce complex tools that require extensive logic. Our goal is to provide a straightforward abstraction layer over the REST API to accomplish targeted tasks.
+### Suggesting Features
 
-## 🪲 Bugs and feature requests
+- Open an issue describing the feature
+- Explain the use case and why it would be helpful
+- Be open to discussion and feedback
 
-Before submitting a new issue or suggestion, please search the existing issues to check if it has already been reported. If you find a matching issue, upvote (👍) it and consider adding a comment describing your specific scenario or requirements. This helps us prioritize based on community impact.
+### Submitting Pull Requests
 
-If your concern is not already tracked, feel free to [log a new issue](https://github.com/microsoft/azure-devops-mcp/issues). The code owners team will review your submission and may approve, request clarification, or reject it. Once approved, you can proceed with your contribution.
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/your-feature-name`
+3. **Make your changes**
+4. **Test thoroughly**:
+   ```bash
+   npm run build
+   npm test
+   ```
+5. **Commit with clear messages**:
+   ```bash
+   git commit -m "Add: Brief description of your change"
+   ```
+6. **Push to your fork**: `git push origin feature/your-feature-name`
+7. **Open a Pull Request** with a clear description
 
-## 📝 Creating issues
+## 🔒 Security Guidelines
 
-When creating an issue:
+**NEVER commit:**
+- Personal Access Tokens (PATs)
+- Organization names
+- Project names
+- Any credentials or API keys
+- Real configuration files
 
-- **DO** use a clear, descriptive title that identifies the problem or requested feature.
-- **DO** provide a detailed description of the issue or feature request.
-- **DO** include any relevant REST endpoints you wish to integrate with. Refer to the [public REST API documentation](https://learn.microsoft.com/en-us/rest/api/azure/devops).
+**ALWAYS:**
+- Use placeholder values in examples (e.g., `YOUR_ORG`, `YOUR_PAT`)
+- Test with dummy data when possible
+- Review `git diff` before committing
 
-For reference, see [this example of a well-formed issue](https://github.com/microsoft/azure-devops-mcp/issues/70).
+## 🧪 Testing
 
-## 👩‍💻 Writing code
+Before submitting a PR:
 
-We are accepting a limited number of pull requests during the public preview phase. If you notice something that should be changed or added, please create an issue first and provide details. Once reviewed, and if it makes sense to proceed, we will respond with a 👍.
+```bash
+# Install dependencies
+npm install
 
-Please include tests with your pull request. Pull requests will not be accepted until all relevant tests are updated and passing.
+# Build the project
+npm run build
 
-Code formatting is enforced by CI checks. Run `npm run format` to ensure your changes comply with the rules.
+# Run tests
+npm test
 
-## 🖊️ Coding style
+# Test manually with Claude Desktop
+# (Use test organization and PAT)
+```
 
-Follow the established patterns and styles in the repository. If you have suggestions for improvements, please open a new issue for discussion.
+## 📝 Code Style
 
-## 📑 Documentation
+- Follow the existing code style
+- Use TypeScript where applicable
+- Add comments for complex logic
+- Keep functions focused and simple
 
-Update relevant documentation (e.g., README, existing code comments) to reflect new or altered functionality. Well-documented changes enable reviewers and future contributors to quickly understand the rationale and intended use of your code.
+## 🤝 Code of Conduct
 
-## 🤝 Code of conduct
+Be respectful, inclusive, and constructive. We're all here to make this project better!
 
-You can find our code of conduct at the [Code of Conduct](./CODE_OF_CONDUCT.md) as a guideline for expected behavior in also at the contributions here. Please take a moment to review it before contributing.
+## 📜 License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+---
+
+**Questions?** Open an issue and we'll help you get started!
