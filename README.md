@@ -1,316 +1,368 @@
-# ⭐ Azure DevOps MCP Server
+# Azure DevOps MCP Server with PAT Authentication
 
-Easily install the Azure DevOps MCP Server for VS Code or VS Code Insiders:
+**A fork of the official Microsoft Azure DevOps MCP Server with added Personal Access Token (PAT) authentication support - NO browser popups!**
 
-[![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_AzureDevops_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ado&config=%7B%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22npx%22%2C%20%22args%22%3A%20%5B%22-y%22%2C%20%22%40azure-devops%2Fmcp%22%2C%20%22%24%7Binput%3Aado_org%7D%22%5D%7D&inputs=%5B%7B%22id%22%3A%20%22ado_org%22%2C%20%22type%22%3A%20%22promptString%22%2C%20%22description%22%3A%20%22Azure%20DevOps%20organization%20name%20%20%28e.g.%20%27contoso%27%29%22%7D%5D)
-[![Install with NPX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_AzureDevops_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ado&quality=insiders&config=%7B%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22npx%22%2C%20%22args%22%3A%20%5B%22-y%22%2C%20%22%40azure-devops%2Fmcp%22%2C%20%22%24%7Binput%3Aado_org%7D%22%5D%7D&inputs=%5B%7B%22id%22%3A%20%22ado_org%22%2C%20%22type%22%3A%20%22promptString%22%2C%20%22description%22%3A%20%22Azure%20DevOps%20organization%20name%20%20%28e.g.%20%27contoso%27%29%22%7D%5D)
+> 🎉 This fork adds PAT authentication to the [official Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp), eliminating the need for browser-based OAuth authentication.
 
-This TypeScript project provides a **local** MCP server for Azure DevOps, enabling you to perform a wide range of Azure DevOps tasks directly from your code editor.
+## 🚀 Quick Start
 
-> 🚨 **Public Preview:** This project is in public preview. Tools and features may change before general availability.
+### Why This Fork?
 
-## 📄 Table of Contents
+The official Azure DevOps MCP Server only supports OAuth authentication, which opens a browser window every time you use it. This fork adds **PAT (Personal Access Token) authentication** for a seamless, browser-free experience.
 
-1. [📺 Overview](#-overview)
-2. [🏆 Expectations](#-expectations)
-3. [⚙️ Supported Tools](#️-supported-tools)
-4. [🔌 Installation & Getting Started](#-installation--getting-started)
-5. [🌏 Using Domains](#-using-domains)
-6. [📝 Troubleshooting](#-troubleshooting)
-7. [🎩 Examples & Best Practices](#-examples--best-practices)
-8. [🙋‍♀️ Frequently Asked Questions](#️-frequently-asked-questions)
-9. [📌 Contributing](#-contributing)
-
-## 📺 Overview
-
-The Azure DevOps MCP Server brings Azure DevOps context to your agents. Try prompts like:
-
-- "List my ADO projects"
-- "List ADO Builds for 'Contoso'"
-- "List ADO Repos for 'Contoso'"
-- "List test plans for 'Contoso'"
-- "List teams for project 'Contoso'"
-- "List iterations for project 'Contoso'"
-- "List my work items for project 'Contoso'"
-- "List work items in current iteration for 'Contoso' project and 'Contoso Team'"
-- "List all wikis in the 'Contoso' project"
-- "Create a wiki page '/Architecture/Overview' with content about system design"
-- "Update the wiki page '/Getting Started' with new onboarding instructions"
-- "Get the content of the wiki page '/API/Authentication' from the Documentation wiki"
-
-## 🏆 Expectations
-
-The Azure DevOps MCP Server is built from tools that are concise, simple, focused, and easy to use—each designed for a specific scenario. We intentionally avoid complex tools that try to do too much. The goal is to provide a thin abstraction layer over the REST APIs, making data access straightforward and letting the language model handle complex reasoning.
-
-## ⚙️ Supported Tools
-
-Interact with these Azure DevOps services:
-
-### 🧿 Core
-
-- **core_list_project_teams**: Retrieve a list of teams for the specified Azure DevOps project.
-- **core_list_projects**: Retrieve a list of projects in your Azure DevOps organization.
-- **core_get_identity_ids**: Retrieve Azure DevOps identity IDs for a list of unique names.
-
-### ⚒️ Work
-
-- **work_list_team_iterations**: Retrieve a list of iterations for a specific team in a project.
-- **work_create_iterations**: Create new iterations in a specified Azure DevOps project.
-- **work_assign_iterations**: Assign existing iterations to a specific team in a project.
-
-### 📅 Work Items
-
-- **wit_my_work_items**: Retrieve a list of work items relevant to the authenticated user.
-- **wit_list_backlogs**: Retrieve a list of backlogs for a given project and team.
-- **wit_list_backlog_work_items**: Retrieve a list of backlogs for a given project, team, and backlog category.
-- **wit_get_work_item**: Get a single work item by ID.
-- **wit_get_work_items_batch_by_ids**: Retrieve a list of work items by IDs in batch.
-- **wit_update_work_item**: Update a work item by ID with specified fields.
-- **wit_create_work_item**: Create a new work item in a specified project and work item type.
-- **wit_list_work_item_comments**: Retrieve a list of comments for a work item by ID.
-- **wit_get_work_items_for_iteration**: Retrieve a list of work items for a specified iteration.
-- **wit_add_work_item_comment**: Add a comment to a work item by ID.
-- **wit_add_child_work_items**: Create one or more child work items of a specific work item type for the given parent ID.
-- **wit_link_work_item_to_pull_request**: Link a single work item to an existing pull request.
-- **wit_get_work_item_type**: Get a specific work item type.
-- **wit_get_query**: Get a query by its ID or path.
-- **wit_get_query_results_by_id**: Retrieve the results of a work item query given the query ID.
-- **wit_update_work_items_batch**: Update work items in batch.
-- **wit_work_items_link**: Link work items together in batch.
-- **wit_work_item_unlink**: Unlink one or many links from a work item.
-- **wit_add_artifact_link**: Link to artifacts like branch, pull request, commit, and build.
-
-### 📁 Repositories
-
-- **repo_list_repos_by_project**: Retrieve a list of repositories for a given project.
-- **repo_list_pull_requests_by_repo**: Retrieve a list of pull requests for a given repository.
-- **repo_list_pull_requests_by_project**: Retrieve a list of pull requests for a given project ID or name.
-- **repo_list_branches_by_repo**: Retrieve a list of branches for a given repository.
-- **repo_list_my_branches_by_repo**: Retrieve a list of your branches for a given repository ID.
-- **repo_list_pull_requests_by_commits**: List pull requests associated with commits.
-- **repo_list_pull_request_threads**: Retrieve a list of comment threads for a pull request.
-- **repo_list_pull_request_thread_comments**: Retrieve a list of comments in a pull request thread.
-- **repo_get_repo_by_name_or_id**: Get the repository by project and repository name or ID.
-- **repo_get_branch_by_name**: Get a branch by its name.
-- **repo_get_pull_request_by_id**: Get a pull request by its ID.
-- **repo_create_pull_request**: Create a new pull request.
-- **repo_create_branch**: Create a new branch in the repository.
-- **repo_update_pull_request_status**: Update the status of an existing pull request to active or abandoned.
-- **repo_update_pull_request**: Update various fields of an existing pull request (title, description, draft status, target branch).
-- **repo_update_pull_request_reviewers**: Add or remove reviewers for an existing pull request.
-- **repo_reply_to_comment**: Replies to a specific comment on a pull request.
-- **repo_resolve_comment**: Resolves a specific comment thread on a pull request.
-- **repo_search_commits**: Searches for commits.
-- **repo_create_pull_request_thread**: Creates a new comment thread on a pull request.
-
-### 🚀 Pipelines
-
-- **pipelines_get_build_definitions**: Retrieve a list of build definitions for a given project.
-- **pipelines_get_build_definition_revisions**: Retrieve a list of revisions for a specific build definition.
-- **pipelines_get_builds**: Retrieve a list of builds for a given project.
-- **pipelines_get_build_log**: Retrieve the logs for a specific build.
-- **pipelines_get_build_log_by_id**: Get a specific build log by log ID.
-- **pipelines_get_build_changes**: Get the changes associated with a specific build.
-- **pipelines_get_build_status**: Fetch the status of a specific build.
-- **pipelines_update_build_stage**: Update the stage of a specific build.
-- **pipelines_get_run**: Gets a run for a particular pipeline.
-- **pipelines_list_runs**: Gets top 10000 runs for a particular pipeline.
-- **pipelines_run_pipeline**: Starts a new run of a pipeline.
-
-### Advanced Security
-
-- **advsec_get_alerts**: Retrieve Advanced Security alerts for a repository.
-- **advsec_get_alert_details**: Get detailed information about a specific Advanced Security alert.
-
-### 🧪 Test Plans
-
-- **testplan_create_test_plan**: Create a new test plan in the project.
-- **testplan_create_test_case**: Create a new test case work item.
-- **testplan_add_test_cases_to_suite**: Add existing test cases to a test suite.
-- **testplan_list_test_plans**: Retrieve a paginated list of test plans from an Azure DevOps project. Allows filtering for active plans and toggling detailed information.
-- **testplan_list_test_cases**: Get a list of test cases in the test plan.
-- **testplan_show_test_results_from_build_id**: Get a list of test results for a given project and build ID.
-- **testplan_create_test_suite**: Creates a new test suite in a test plan.
-
-### 📖 Wiki
-
-- **wiki_list_wikis**: Retrieve a list of wikis for an organization or project.
-- **wiki_get_wiki**: Get the wiki by wikiIdentifier.
-- **wiki_list_pages**: Retrieve a list of wiki pages for a specific wiki and project.
-- **wiki_get_page_content**: Retrieve wiki page content by wikiIdentifier and path.
-- **wiki_create_or_update_page**: Create or update wiki pages with full content support.
-
-### 🔎 Search
-
-- **search_code**: Get code search results for a given search text.
-- **search_wiki**: Get wiki search results for a given search text.
-- **search_workitem**: Get work item search results for a given search text.
-
-## 🔌 Installation & Getting Started
-
-For the best experience, use Visual Studio Code and GitHub Copilot. See the [getting started documentation](./docs/GETTINGSTARTED.md) to use our MCP Server with other tools such as Visual Studio 2022, Claude Code, and Cursor.
-
-### Prerequisites
-
-1. Install [VS Code](https://code.visualstudio.com/download) or [VS Code Insiders](https://code.visualstudio.com/insiders)
-2. Install [Node.js](https://nodejs.org/en/download) 20+
-3. Open VS Code in an empty folder
-
-### Installation
-
-#### ✨ One-Click Install
-
-[![Install with NPX in VS Code](https://img.shields.io/badge/VS_Code-Install_AzureDevops_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ado&config=%7B%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22npx%22%2C%20%22args%22%3A%20%5B%22-y%22%2C%20%22%40azure-devops%2Fmcp%22%2C%20%22%24%7Binput%3Aado_org%7D%22%5D%7D&inputs=%5B%7B%22id%22%3A%20%22ado_org%22%2C%20%22type%22%3A%20%22promptString%22%2C%20%22description%22%3A%20%22Azure%20DevOps%20organization%20name%20%20%28e.g.%20%27contoso%27%29%22%7D%5D)
-[![Install with NPX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_AzureDevops_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=ado&quality=insiders&config=%7B%20%22type%22%3A%20%22stdio%22%2C%20%22command%22%3A%20%22npx%22%2C%20%22args%22%3A%20%5B%22-y%22%2C%20%22%40azure-devops%2Fmcp%22%2C%20%22%24%7Binput%3Aado_org%7D%22%5D%7D&inputs=%5B%7B%22id%22%3A%20%22ado_org%22%2C%20%22type%22%3A%20%22promptString%22%2C%20%22description%22%3A%20%22Azure%20DevOps%20organization%20name%20%20%28e.g.%20%27contoso%27%29%22%7D%5D)
-
-After installation, select GitHub Copilot Agent Mode and refresh the tools list. Learn more about Agent Mode in the [VS Code Documentation](https://code.visualstudio.com/docs/copilot/chat/chat-agent-mode).
-
-#### 🧨 Install from Public Feed (Recommended)
-
-This installation method is the easiest for all users of Visual Studio Code.
-
-🎥 [Watch this quick start video to get up and running in under two minutes!](https://youtu.be/EUmFM6qXoYk)
-
-##### Steps
-
-In your project, add a `.vscode\mcp.json` file with the following content:
-
-```json
-{
-  "inputs": [
-    {
-      "id": "ado_org",
-      "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
-    }
-  ],
-  "servers": {
-    "ado": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@azure-devops/mcp", "${input:ado_org}"]
-    }
-  }
-}
-```
-
-🔥 To stay up to date with the latest features, you can use our nightly builds. Simply update your `mcp.json` configuration to use `@azure-devops/mcp@next`. Here is an updated example:
-
-```json
-{
-  "inputs": [
-    {
-      "id": "ado_org",
-      "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
-    }
-  ],
-  "servers": {
-    "ado": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@azure-devops/mcp@next", "${input:ado_org}"]
-    }
-  }
-}
-```
-
-Save the file, then click 'Start'.
-
-![start mcp server](./docs/media/start-mcp-server.gif)
-
-In chat, switch to [Agent Mode](https://code.visualstudio.com/blogs/2025/02/24/introducing-copilot-agent-mode).
-
-Click "Select Tools" and choose the available tools.
-
-![configure mcp server tools](./docs/media/configure-mcp-server-tools.gif)
-
-Open GitHub Copilot Chat and try a prompt like `List ADO projects`. The first time an ADO tool is executed browser will open prompting to login with your Microsoft account. Please ensure you are using credentials matching selected Azure DevOps organization.
-
-> 💥 We strongly recommend creating a `.github\copilot-instructions.md` in your project. This will enhance your experience using the Azure DevOps MCP Server with GitHub Copilot Chat.
-> To start, just include "`This project uses Azure DevOps. Always check to see if the Azure DevOps MCP server has a tool relevant to the user's request`" in your copilot instructions file.
-
-See the [getting started documentation](./docs/GETTINGSTARTED.md) to use our MCP Server with other tools such as Visual Studio 2022, Claude Code, and Cursor.
-
-## 🌏 Using Domains
-
-Azure DevOps exposes a large surface area. As a result, our Azure DevOps MCP Server includes many tools. To keep the toolset manageable, avoid confusing the model, and respect client limits on loaded tools, use Domains to load only the areas you need. Domains are named groups of related tools (for example: core, work, work-items, repositories, wiki). Add the `-d` argument and the domain names to the server args in your `mcp.json` to list the domains to enable.
-
-For example, use `"-d", "core", "work", "work-items"` to load only Work Item related tools (see the example below).
-
-```json
-{
-  "inputs": [
-    {
-      "id": "ado_org",
-      "type": "promptString",
-      "description": "Azure DevOps organization name  (e.g. 'contoso')"
-    }
-  ],
-  "servers": {
-    "ado_with_filtered_domains": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@azure-devops/mcp", "${input:ado_org}", "-d", "core", "work", "work-items"]
-    }
-  }
-}
-```
-
-Domains that are available are: `core`, `work`, `work-items`, `search`, `test-plans`, `repositories`, `wiki`, `pipelines`, `advanced-security`
-
-We recommend that you always enable `core` tools so that you can fetch project level information.
-
-> By default all domains are loaded
-
-## 📝 Troubleshooting
-
-See the [Troubleshooting guide](./docs/TROUBLESHOOTING.md) for help with common issues and logging.
-
-## 🎩 Examples & Best Practices
-
-Explore example prompts in our [Examples documentation](./docs/EXAMPLES.md).
-
-For best practices and tips to enhance your experience with the MCP Server, refer to the [How-To guide](./docs/HOWTO.md).
-
-## 🙋‍♀️ Frequently Asked Questions
-
-For answers to common questions about the Azure DevOps MCP Server, see the [Frequently Asked Questions](./docs/FAQ.md).
-
-## 📌 Contributing
-
-We welcome contributions! During preview, please file issues for bugs, enhancements, or documentation improvements.
-
-See our [Contributions Guide](./CONTRIBUTING.md) for:
-
-- 🛠️ Development setup
-- ✨ Adding new tools
-- 📝 Code style & testing
-- 🔄 Pull request process
-
-## 🤝 Code of Conduct
-
-This project follows the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For questions, see the [FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [open@microsoft.com](mailto:open@microsoft.com).
-
-## 📈 Project Stats
-
-[![Star History Chart](https://api.star-history.com/svg?repos=microsoft/azure-devops-mcp&type=Date)](https://star-history.com/#microsoft/azure-devops-mcp)
-
-## 🏆 Hall of Fame
-
-Thanks to all contributors who make this project awesome! ❤️
-
-[![Contributors](https://contrib.rocks/image?repo=microsoft/azure-devops-mcp)](https://github.com/microsoft/azure-devops-mcp/graphs/contributors)
-
-> Generated with [contrib.rocks](https://contrib.rocks)
-
-## License
-
-Licensed under the [MIT License](./LICENSE.md).
+**Perfect for:**
+- 🔒 Users who want direct API authentication without browser popups
+- 🚫 Environments where browser authentication isn't practical
+- ⚡ Faster, more streamlined workflows
 
 ---
 
-_Trademarks: This project may include trademarks or logos for Microsoft or third parties. Use of Microsoft trademarks or logos must follow [Microsoft’s Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general). Third-party trademarks are subject to their respective policies._
+## 📦 Installation for Claude Desktop
 
-<!-- version: 2023-04-07 [Do not delete this line, it is used for analytics that drive template improvements] -->
+### Prerequisites
+
+- **Node.js 20+** (required by Azure DevOps MCP)
+- **Claude Desktop** (macOS or Windows)
+- **Azure DevOps Personal Access Token** ([Create one here](https://dev.azure.com))
+
+### Step 1: Create a Personal Access Token
+
+1. Go to your Azure DevOps organization: `https://dev.azure.com/{your-org}`
+2. Click on **User Settings** (gear icon) → **Personal Access Tokens**
+3. Click **"New Token"**
+4. Give it a name (e.g., "Claude Desktop MCP")
+5. Select the scopes you need (recommended: **Full access** for testing, or specific scopes for production)
+6. Click **"Create"**
+7. **Copy the token** - you won't see it again!
+
+### Step 2: Configure Claude Desktop
+
+1. **Open Claude Desktop Settings**:
+   - macOS: `Claude` menu → `Settings...` → `Developer` tab → `Edit Config`
+   - Windows: `Settings` → `Developer` → `Edit Config`
+
+2. **Add this configuration** to your `claude_desktop_config.json`:
+
+   ```json
+   {
+     "mcpServers": {
+       "azure-devops": {
+         "command": "npx",
+         "args": [
+           "-y",
+           "@azure-devops/mcp@latest",
+           "YOUR_ORGANIZATION_NAME",
+           "--authentication",
+           "pat"
+         ],
+         "env": {
+           "ADO_PAT": "YOUR_PERSONAL_ACCESS_TOKEN_HERE"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Replace these values**:
+   - `YOUR_ORGANIZATION_NAME`: Your Azure DevOps organization (e.g., if your URL is `https://dev.azure.com/contoso`, use `contoso`)
+   - `YOUR_PERSONAL_ACCESS_TOKEN_HERE`: The PAT you created in Step 1
+
+4. **Save the file** and **restart Claude Desktop**
+
+### Step 3: Verify It Works
+
+After restarting Claude Desktop:
+
+1. Look for the **🔨 hammer icon** in the chat input box
+2. Click it to see available Azure DevOps tools
+3. Try a prompt: **"List my Azure DevOps projects"**
+
+**No browser popups!** 🎉
+
+---
+
+## 🛠️ Installation for Development (From Source)
+
+If you want to contribute or use the latest development version:
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Jita81/Claude-Desktop---Azure-DevOps-MCP.git
+cd Claude-Desktop---Azure-DevOps-MCP
+```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 3. Build the Project
+
+```bash
+npm run build
+```
+
+### 4. Configure Claude Desktop (Local Build)
+
+**Option A: Using a Safe Location (Recommended)**
+
+```bash
+# Copy to a location Claude Desktop can access
+mkdir -p ~/.local/mcp-servers/azure-devops
+cp -r dist/* ~/.local/mcp-servers/azure-devops/
+cp -r node_modules ~/.local/mcp-servers/azure-devops/
+```
+
+Then configure `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "azure-devops": {
+      "command": "node",
+      "args": [
+        "/Users/YOUR_USERNAME/.local/mcp-servers/azure-devops/index.js",
+        "YOUR_ORGANIZATION",
+        "--authentication",
+        "pat"
+      ],
+      "env": {
+        "ADO_PAT": "YOUR_PERSONAL_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+**Option B: Using Full Node.js Path**
+
+If you have multiple Node versions (e.g., via NVM):
+
+```json
+{
+  "mcpServers": {
+    "azure-devops": {
+      "command": "/path/to/node",
+      "args": [
+        "/Users/YOUR_USERNAME/.local/mcp-servers/azure-devops/index.js",
+        "YOUR_ORGANIZATION",
+        "--authentication",
+        "pat"
+      ],
+      "env": {
+        "ADO_PAT": "YOUR_PERSONAL_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+---
+
+## 🔑 Authentication Options
+
+This fork supports **all authentication methods** from the official server, plus PAT:
+
+| Method | Description | Browser Required? | Use Case |
+|--------|-------------|-------------------|----------|
+| `pat` | Personal Access Token | ❌ No | **Recommended** - Direct API access |
+| `interactive` | OAuth browser flow | ✅ Yes | Default method (original behavior) |
+| `azcli` | Azure CLI credentials | ❌ No | If you have Azure CLI configured |
+| `env` | Environment variables | ❌ No | Azure DefaultCredential |
+
+### Using PAT Authentication (This Fork)
+
+```json
+{
+  "args": ["YOUR_ORG", "--authentication", "pat"],
+  "env": { "ADO_PAT": "your-token" }
+}
+```
+
+### Using OAuth (Original Behavior)
+
+```json
+{
+  "args": ["YOUR_ORG", "--authentication", "interactive"]
+}
+```
+
+---
+
+## 📋 Available Tools
+
+Once configured, you'll have access to 100+ Azure DevOps tools:
+
+### Core
+- `core_list_projects` - List all projects
+- `core_list_project_teams` - List teams in a project
+- `core_get_identity_ids` - Get identity information
+
+### Work Items
+- `wit_my_work_items` - Get your work items
+- `wit_create_work_item` - Create new work items
+- `wit_update_work_item` - Update work items
+- `wit_get_work_item` - Get work item details
+- And 20+ more work item tools...
+
+### Repositories
+- `repo_list_repos_by_project` - List repositories
+- `repo_create_pull_request` - Create pull requests
+- `repo_list_pull_requests_by_project` - List PRs
+- `repo_create_branch` - Create branches
+- And 15+ more repository tools...
+
+### Pipelines
+- `pipelines_get_builds` - List builds
+- `pipelines_run_pipeline` - Run pipelines
+- `pipelines_get_build_log` - Get build logs
+- And 10+ more pipeline tools...
+
+### Wiki
+- `wiki_list_wikis` - List wikis
+- `wiki_get_page_content` - Get wiki content
+- `wiki_create_or_update_page` - Create/update pages
+
+### Search
+- `search_code` - Search code repositories
+- `search_workitem` - Search work items
+- `search_wiki` - Search wiki pages
+
+### Test Plans
+- `testplan_list_test_plans` - List test plans
+- `testplan_create_test_case` - Create test cases
+- And more...
+
+See the [full list of tools](https://github.com/microsoft/azure-devops-mcp#%EF%B8%8F-supported-tools) in the official documentation.
+
+---
+
+## 💡 Example Prompts
+
+Try these prompts in Claude Desktop after setup:
+
+```
+List all my Azure DevOps projects
+
+Show me my work items in the {project-name} project
+
+Create a new bug in {project-name} with title "Login button not working"
+
+List all pull requests in {project-name}
+
+Show me build logs for the latest build in {project-name}
+
+List all repositories in {project-name}
+
+Create a wiki page in {project-name} with content about our API design
+
+Search for code containing "authentication" in {project-name}
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Server Not Loading
+
+1. **Check Claude Desktop Logs**:
+   - macOS: `~/Library/Logs/Claude/mcp.log`
+   - Windows: `%APPDATA%\Claude\logs\mcp.log`
+
+2. **Verify Node.js Version**:
+   ```bash
+   node --version  # Must be 20+
+   ```
+
+3. **Test the Server Manually**:
+   ```bash
+   ADO_PAT="your-token" node ~/.local/mcp-servers/azure-devops/index.js YOUR_ORG --authentication pat --help
+   ```
+
+### Permission Errors (macOS)
+
+If you see `EPERM: operation not permitted`:
+
+- **Don't** use files from `~/Documents` (macOS blocks Claude Desktop access)
+- **Do** copy to `~/.local/mcp-servers/` as shown in the installation steps
+
+### Tools Not Appearing
+
+1. Restart Claude Desktop completely (Quit, then reopen)
+2. Check for the 🔨 hammer icon in the chat input
+3. Click the hammer and verify tools are listed
+
+### Authentication Errors
+
+- **PAT Invalid**: Verify your PAT hasn't expired and has the correct scopes
+- **Organization Not Found**: Check your organization name (it's the part after `dev.azure.com/` in your URL)
+
+### Still Having Issues?
+
+Check the [official troubleshooting guide](https://github.com/microsoft/azure-devops-mcp#-troubleshooting) or [open an issue](https://github.com/Jita81/Claude-Desktop---Azure-DevOps-MCP/issues).
+
+---
+
+## 🔄 What's Different From the Official Server?
+
+This fork adds:
+
+1. ✅ **PAT Authentication Support** - No more browser popups!
+2. ✅ **Updated Documentation** - Focused on PAT usage
+3. ✅ **Improved Accessibility** - Works from locations Claude Desktop can access
+
+All other features remain the same as the [official Microsoft Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp).
+
+---
+
+## 📜 Credits
+
+- **Original Project**: [Microsoft Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp)
+- **PAT Authentication**: Added by this fork
+- **License**: MIT (same as original)
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+
+1. Fork this repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT License - Same as the [original project](https://github.com/microsoft/azure-devops-mcp)
+
+Copyright (c) Microsoft Corporation (Original)
+Copyright (c) 2024 (PAT Authentication Fork)
+
+---
+
+## ⚠️ Security Notes
+
+**NEVER commit your Personal Access Token to Git!**
+
+- ✅ Store PAT in Claude Desktop config (not tracked by Git)
+- ✅ Use environment variables
+- ❌ Don't hardcode tokens in source code
+- ❌ Don't commit `claude_desktop_config.json` if it contains tokens
+
+---
+
+## 🙏 Support
+
+- **Official Server Issues**: [Microsoft Azure DevOps MCP Issues](https://github.com/microsoft/azure-devops-mcp/issues)
+- **PAT Authentication Issues**: [This Fork's Issues](https://github.com/Jita81/Claude-Desktop---Azure-DevOps-MCP/issues)
+- **General MCP Questions**: [MCP Documentation](https://modelcontextprotocol.io/)
+
+---
+
+**Happy coding! 🚀**
