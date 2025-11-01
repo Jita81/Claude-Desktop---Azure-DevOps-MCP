@@ -3,7 +3,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebApi } from "azure-devops-node-api";
-import { WorkItemExpand, WorkItemRelation } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
+import { WorkItemExpand, WorkItemRelation, TreeStructureGroup } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { QueryExpand } from "azure-devops-node-api/interfaces/WorkItemTrackingInterfaces.js";
 import { z } from "zod";
 import { batchApiVersion, markdownCommentsApiVersion, getEnumKeys, safeEnumConvert, encodeFormattedValue } from "../utils.js";
@@ -16,18 +16,44 @@ const WORKITEM_TOOLS = {
   get_work_items_batch_by_ids: "wit_get_work_items_batch_by_ids",
   update_work_item: "wit_update_work_item",
   create_work_item: "wit_create_work_item",
+  delete_work_item: "wit_delete_work_item",
+  restore_work_item: "wit_restore_work_item",
+  get_work_item_revisions: "wit_get_work_item_revisions",
+  get_work_item_revision: "wit_get_work_item_revision",
+  get_work_item_updates: "wit_get_work_item_updates",
   list_work_item_comments: "wit_list_work_item_comments",
   get_work_items_for_iteration: "wit_get_work_items_for_iteration",
   add_work_item_comment: "wit_add_work_item_comment",
   add_child_work_items: "wit_add_child_work_items",
   link_work_item_to_pull_request: "wit_link_work_item_to_pull_request",
   get_work_item_type: "wit_get_work_item_type",
+  list_work_item_types: "wit_list_work_item_types",
+  list_work_item_fields: "wit_list_work_item_fields",
+  get_work_item_field: "wit_get_work_item_field",
   get_query: "wit_get_query",
   get_query_results_by_id: "wit_get_query_results_by_id",
+  execute_wiql: "wit_execute_wiql",
+  list_queries: "wit_list_queries",
+  create_query: "wit_create_query",
+  update_query: "wit_update_query",
+  delete_query: "wit_delete_query",
   update_work_items_batch: "wit_update_work_items_batch",
   work_items_link: "wit_work_items_link",
   work_item_unlink: "wit_work_item_unlink",
   add_artifact_link: "wit_add_artifact_link",
+  // Iteration management tools (merged from work.ts)
+  list_team_iterations: "wit_list_team_iterations",
+  create_iterations: "wit_create_iterations",
+  assign_iterations: "wit_assign_iterations",
+  // Classification (Area and Iteration) management tools
+  list_areas: "wit_list_areas",
+  create_area: "wit_create_area",
+  update_area: "wit_update_area",
+  delete_area: "wit_delete_area",
+  list_iterations: "wit_list_iterations",
+  update_iteration: "wit_update_iteration",
+  delete_iteration: "wit_delete_iteration",
+  feature_requirements: "wit_feature_requirements",
 };
 
 function getLinkTypeFromName(name: string) {
@@ -196,6 +222,155 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       return {
         content: [{ type: "text", text: JSON.stringify(workItem, null, 2) }],
       };
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.feature_requirements,
+    "Retrieve a Feature and all its child User Stories with basic fields in a structured JSON format for AI agents to build features.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      featureId: z.number().describe("The ID of the Feature work item."),
+    },
+    async ({ project, featureId }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+
+        // Step 1: Get the Feature work item with relations to find child items
+        const feature = await workItemApi.getWorkItem(
+          featureId,
+          undefined,
+          undefined,
+          WorkItemExpand.Relations,
+          project
+        );
+
+        if (!feature) {
+          return {
+            content: [{ type: "text", text: `Feature #${featureId} not found in project ${project}` }],
+            isError: true,
+          };
+        }
+
+        // Verify it's actually a Feature
+        if (feature.fields && feature.fields["System.WorkItemType"] !== "Feature") {
+          return {
+            content: [{ 
+              type: "text", 
+              text: `Work item #${featureId} is not a Feature (it's a ${feature.fields["System.WorkItemType"]})` 
+            }],
+            isError: true,
+          };
+        }
+
+        // Step 2: Filter relations to find child User Stories
+        const childStoryIds: number[] = [];
+        if (feature.relations && feature.relations.length > 0) {
+          for (const relation of feature.relations) {
+            // Child links use System.LinkTypes.Hierarchy-Forward
+            if (relation.rel === "System.LinkTypes.Hierarchy-Forward" && relation.url) {
+              // Extract work item ID from URL (format: https://dev.azure.com/org/_apis/wit/workItems/123)
+              const match = relation.url.match(/workItems\/(\d+)$/);
+              if (match) {
+                childStoryIds.push(parseInt(match[1], 10));
+              }
+            }
+          }
+        }
+
+        // Step 3: Batch retrieve child work items if any exist
+        let stories: any[] = [];
+        if (childStoryIds.length > 0) {
+          // Define the fields we want for stories
+          const storyFields = [
+            "System.Id",
+            "System.WorkItemType",
+            "System.Title",
+            "System.Description",
+            "System.State",
+            "System.Tags",
+            "System.AreaPath",
+            "System.IterationPath",
+            "System.AssignedTo",
+            "Microsoft.VSTS.Common.Priority",
+            "Microsoft.VSTS.Common.AcceptanceCriteria",
+          ];
+
+          const childWorkItems = await workItemApi.getWorkItemsBatch(
+            { ids: childStoryIds, fields: storyFields },
+            project
+          );
+
+          // Filter to only include User Stories and format the data
+          if (childWorkItems && Array.isArray(childWorkItems)) {
+            stories = childWorkItems
+              .filter((item) => item.fields && item.fields["System.WorkItemType"] === "User Story")
+              .map((item) => {
+                const fields = item.fields || {};
+                
+                // Format AssignedTo field if present
+                let assignedTo = fields["System.AssignedTo"];
+                if (assignedTo && typeof assignedTo === "object") {
+                  assignedTo = `${assignedTo.displayName || ""} <${assignedTo.uniqueName || ""}>`.trim();
+                }
+
+                return {
+                  id: fields["System.Id"],
+                  title: fields["System.Title"] || "",
+                  description: fields["System.Description"] || "",
+                  acceptanceCriteria: fields["Microsoft.VSTS.Common.AcceptanceCriteria"] || "",
+                  state: fields["System.State"] || "",
+                  tags: fields["System.Tags"] || "",
+                  areaPath: fields["System.AreaPath"] || "",
+                  iterationPath: fields["System.IterationPath"] || "",
+                  priority: fields["Microsoft.VSTS.Common.Priority"] || null,
+                  assignedTo: assignedTo || "",
+                };
+              });
+          }
+        }
+
+        // Step 4: Format the Feature data
+        const featureFields = feature.fields || {};
+        
+        // Format AssignedTo field if present
+        let featureAssignedTo = featureFields["System.AssignedTo"];
+        if (featureAssignedTo && typeof featureAssignedTo === "object") {
+          featureAssignedTo = `${featureAssignedTo.displayName || ""} <${featureAssignedTo.uniqueName || ""}>`.trim();
+        }
+
+        const result = {
+          feature: {
+            id: featureFields["System.Id"],
+            title: featureFields["System.Title"] || "",
+            description: featureFields["System.Description"] || "",
+            state: featureFields["System.State"] || "",
+            tags: featureFields["System.Tags"] || "",
+            areaPath: featureFields["System.AreaPath"] || "",
+            iterationPath: featureFields["System.IterationPath"] || "",
+            priority: featureFields["Microsoft.VSTS.Common.Priority"] || null,
+            assignedTo: featureAssignedTo || "",
+          },
+          stories: stories,
+          summary: {
+            featureId: featureId,
+            totalChildWorkItems: childStoryIds.length,
+            userStoriesCount: stories.length,
+            otherChildWorkItemsCount: childStoryIds.length - stories.length,
+          }
+        };
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        return {
+          content: [{ type: "text", text: `Error retrieving feature requirements: ${errorMessage}` }],
+          isError: true,
+        };
+      }
     }
   );
 
@@ -543,6 +718,97 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   );
 
   server.tool(
+    WORKITEM_TOOLS.list_work_item_types,
+    "List all work item types available in a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const workItemTypes = await workItemApi.getWorkItemTypes(project);
+
+        if (!workItemTypes || workItemTypes.length === 0) {
+          return { content: [{ type: "text", text: "No work item types found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(workItemTypes, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error listing work item types: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.list_work_item_fields,
+    "List all work item fields available in a project or organization.",
+    {
+      project: z.string().optional().describe("Optional: The name or ID of the Azure DevOps project. If not provided, returns all fields in the organization."),
+    },
+    async ({ project }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const fields = await workItemApi.getFields(project);
+
+        if (!fields || fields.length === 0) {
+          return { content: [{ type: "text", text: "No work item fields found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(fields, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error listing work item fields: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.get_work_item_field,
+    "Get details about a specific work item field.",
+    {
+      fieldNameOrRefName: z.string().describe("The name or reference name of the field to retrieve (e.g., 'System.Title' or 'Title')."),
+      project: z.string().optional().describe("Optional: The name or ID of the Azure DevOps project."),
+    },
+    async ({ fieldNameOrRefName, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const field = await workItemApi.getField(fieldNameOrRefName, project);
+
+        if (!field) {
+          return { content: [{ type: "text", text: `Field '${fieldNameOrRefName}' not found` }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(field, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error getting work item field: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
     WORKITEM_TOOLS.create_work_item,
     "Create a new work item in a specified project and work item type.",
     {
@@ -603,6 +869,194 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
   );
 
   server.tool(
+    WORKITEM_TOOLS.delete_work_item,
+    "Delete a work item by moving it to the recycle bin.",
+    {
+      id: z.number().describe("The ID of the work item to delete."),
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+    },
+    async ({ id, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const deletedWorkItem = await workItemApi.deleteWorkItem(id, project);
+
+        if (!deletedWorkItem) {
+          return { content: [{ type: "text", text: "Work item was not deleted" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(deletedWorkItem, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting work item: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.restore_work_item,
+    "Restore a deleted work item from the recycle bin.",
+    {
+      id: z.number().describe("The ID of the work item to restore."),
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+    },
+    async ({ id, project }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const patch: any = [
+          {
+            op: "add",
+            path: "/fields/System.State",
+            value: "New"
+          }
+        ];
+        
+        const restoredWorkItem = await workItemApi.restoreWorkItem(patch, id, project);
+
+        if (!restoredWorkItem) {
+          return { content: [{ type: "text", text: "Work item was not restored" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(restoredWorkItem, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error restoring work item: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.get_work_item_revisions,
+    "Get the complete revision history for a work item.",
+    {
+      id: z.number().describe("The ID of the work item to get revisions for."),
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      top: z.number().optional().describe("Number of revisions to return. Defaults to all."),
+      skip: z.number().optional().describe("Number of revisions to skip. Defaults to 0."),
+      expand: z
+        .enum(["all", "fields", "links", "none", "relations"])
+        .optional()
+        .describe("Expand options include 'all', 'fields', 'links', 'none', and 'relations'. Defaults to 'none'."),
+    },
+    async ({ id, project, top, skip, expand }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const revisions = await workItemApi.getRevisions(
+          id,
+          top,
+          skip,
+          expand as unknown as WorkItemExpand,
+          project
+        );
+
+        if (!revisions || revisions.length === 0) {
+          return { content: [{ type: "text", text: "No revisions found for this work item" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(revisions, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error getting work item revisions: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.get_work_item_revision,
+    "Get a specific revision of a work item.",
+    {
+      id: z.number().describe("The ID of the work item."),
+      revisionNumber: z.number().describe("The revision number to retrieve."),
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      expand: z
+        .enum(["all", "fields", "links", "none", "relations"])
+        .optional()
+        .describe("Expand options include 'all', 'fields', 'links', 'none', and 'relations'. Defaults to 'none'."),
+    },
+    async ({ id, revisionNumber, project, expand }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const revision = await workItemApi.getRevision(
+          id,
+          revisionNumber,
+          expand as unknown as WorkItemExpand,
+          project
+        );
+
+        if (!revision) {
+          return { content: [{ type: "text", text: `Revision ${revisionNumber} not found for work item ${id}` }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(revision, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error getting work item revision: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.get_work_item_updates,
+    "Get a list of updates (changes) made to a work item over time.",
+    {
+      id: z.number().describe("The ID of the work item to get updates for."),
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      top: z.number().optional().describe("Number of updates to return. Defaults to all."),
+      skip: z.number().optional().describe("Number of updates to skip. Defaults to 0."),
+    },
+    async ({ id, project, top, skip }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const updates = await workItemApi.getUpdates(id, top, skip, project);
+
+        if (!updates || updates.length === 0) {
+          return { content: [{ type: "text", text: "No updates found for this work item" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(updates, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error getting work item updates: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
     WORKITEM_TOOLS.get_query,
     "Get a query by its ID or path.",
     {
@@ -647,6 +1101,209 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
       return {
         content: [{ type: "text", text: JSON.stringify(queryResult, null, 2) }],
       };
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.execute_wiql,
+    "Execute a WIQL (Work Item Query Language) query to retrieve work items.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      wiql: z.string().describe("The WIQL query string. Example: 'SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.WorkItemType] = 'Bug' AND [System.State] = 'Active'"),
+      team: z.string().optional().describe("Optional: The name or ID of the Azure DevOps team."),
+      timePrecision: z.boolean().optional().describe("Whether to include time precision in the results. Defaults to false."),
+      top: z.number().optional().describe("The maximum number of results to return."),
+    },
+    async ({ project, wiql, team, timePrecision, top }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const teamContext = { project, team };
+        
+        const queryResult = await workItemApi.queryByWiql(
+          { query: wiql },
+          teamContext,
+          timePrecision,
+          top
+        );
+
+        if (!queryResult) {
+          return { content: [{ type: "text", text: "Query returned no results" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(queryResult, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error executing WIQL query: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.list_queries,
+    "List all saved queries in a project, optionally filtered by a specific folder.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      expand: z
+        .enum(getEnumKeys(QueryExpand) as [string, ...string[]])
+        .optional()
+        .describe("Optional expand parameter to include additional details. Options: 'None', 'Wiql', 'Clauses', 'All'. Defaults to 'None'."),
+      depth: z.number().optional().describe("The depth of the query hierarchy to retrieve. Defaults to 1."),
+      includeDeleted: z.boolean().optional().describe("Whether to include deleted queries. Defaults to false."),
+    },
+    async ({ project, expand, depth, includeDeleted }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const queries = await workItemApi.getQueries(
+          project,
+          expand ? safeEnumConvert(QueryExpand, expand) : undefined,
+          depth,
+          includeDeleted
+        );
+
+        if (!queries || queries.length === 0) {
+          return { content: [{ type: "text", text: "No queries found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(queries, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error listing queries: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.create_query,
+    "Create a new saved query in a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      query: z.object({
+        name: z.string().describe("The name of the query."),
+        wiql: z.string().describe("The WIQL query string."),
+        path: z.string().optional().describe("Optional: The folder path where the query should be saved (e.g., 'My Queries' or 'Shared Queries/Team')."),
+      }).describe("The query definition including name and WIQL."),
+    },
+    async ({ project, query }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const queryToCreate: any = {
+          name: query.name,
+          wiql: query.wiql,
+        };
+
+        // Path for query folder, default to 'My Queries'
+        const queryPath = query.path || "My Queries";
+        
+        const createdQuery = await workItemApi.createQuery(
+          queryToCreate,
+          project,
+          queryPath
+        );
+
+        if (!createdQuery) {
+          return { content: [{ type: "text", text: "Query was not created" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(createdQuery, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating query: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.update_query,
+    "Update an existing saved query.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      queryId: z.string().describe("The ID of the query to update."),
+      query: z.object({
+        name: z.string().optional().describe("Optional: The new name of the query."),
+        wiql: z.string().optional().describe("Optional: The new WIQL query string."),
+      }).describe("The query updates. Provide at least one field to update."),
+    },
+    async ({ project, queryId, query }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const queryToUpdate: any = {};
+        if (query.name) queryToUpdate.name = query.name;
+        if (query.wiql) queryToUpdate.wiql = query.wiql;
+
+        const updatedQuery = await workItemApi.updateQuery(
+          queryToUpdate,
+          project,
+          queryId
+        );
+
+        if (!updatedQuery) {
+          return { content: [{ type: "text", text: "Query was not updated" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(updatedQuery, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating query: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.delete_query,
+    "Delete a saved query.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      queryId: z.string().describe("The ID of the query to delete."),
+    },
+    async ({ project, queryId }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        await workItemApi.deleteQuery(project, queryId);
+
+        return {
+          content: [{ type: "text", text: `Query ${queryId} deleted successfully` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting query: ${errorMessage}` }],
+          isError: true,
+        };
+      }
     }
   );
 
@@ -1024,6 +1681,410 @@ function configureWorkItemTools(server: McpServer, tokenProvider: () => Promise<
 
         return {
           content: [{ type: "text", text: `Error adding artifact link to work item: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Iteration Management Tools (merged from work.ts)
+  server.tool(
+    WORKITEM_TOOLS.list_team_iterations,
+    "Retrieve a list of iterations for a specific team in a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      team: z.string().describe("The name or ID of the Azure DevOps team."),
+      timeframe: z.enum(["current"]).optional().describe("The timeframe for which to retrieve iterations. Currently, only 'current' is supported."),
+    },
+    async ({ project, team, timeframe }) => {
+      try {
+        const connection = await connectionProvider();
+        const workApi = await connection.getWorkApi();
+        const iterations = await workApi.getTeamIterations({ project, team }, timeframe);
+
+        if (!iterations) {
+          return { content: [{ type: "text", text: "No iterations found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(iterations, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error fetching team iterations: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.create_iterations,
+    "Create new iterations in a specified Azure DevOps project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      iterations: z
+        .array(
+          z.object({
+            iterationName: z.string().describe("The name of the iteration to create."),
+            startDate: z.string().optional().describe("The start date of the iteration in ISO format (e.g., '2023-01-01T00:00:00Z'). Optional."),
+            finishDate: z.string().optional().describe("The finish date of the iteration in ISO format (e.g., '2023-01-31T23:59:59Z'). Optional."),
+          })
+        )
+        .describe("An array of iterations to create. Each iteration must have a name and can optionally have start and finish dates in ISO format."),
+    },
+    async ({ project, iterations }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemTrackingApi = await connection.getWorkItemTrackingApi();
+        const results = [];
+
+        for (const { iterationName, startDate, finishDate } of iterations) {
+          const iteration = await workItemTrackingApi.createOrUpdateClassificationNode(
+            {
+              name: iterationName,
+              attributes: {
+                startDate: startDate ? new Date(startDate) : undefined,
+                finishDate: finishDate ? new Date(finishDate) : undefined,
+              },
+            },
+            project,
+            TreeStructureGroup.Iterations
+          );
+
+          if (iteration) {
+            results.push(iteration);
+          }
+        }
+
+        if (results.length === 0) {
+          return { content: [{ type: "text", text: "No iterations were created" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating iterations: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.assign_iterations,
+    "Assign existing iterations to a specific team in a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      team: z.string().describe("The name or ID of the Azure DevOps team."),
+      iterations: z
+        .array(
+          z.object({
+            identifier: z.string().describe("The identifier of the iteration to assign."),
+            path: z.string().describe("The path of the iteration to assign, e.g., 'Project/Iteration'."),
+          })
+        )
+        .describe("An array of iterations to assign. Each iteration must have an identifier and a path."),
+    },
+    async ({ project, team, iterations }) => {
+      try {
+        const connection = await connectionProvider();
+        const workApi = await connection.getWorkApi();
+        const teamContext = { project, team };
+        const results = [];
+
+        for (const { identifier, path } of iterations) {
+          const assignment = await workApi.postTeamIteration({ path: path, id: identifier }, teamContext);
+
+          if (assignment) {
+            results.push(assignment);
+          }
+        }
+
+        if (results.length === 0) {
+          return { content: [{ type: "text", text: "No iterations were assigned to the team" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error assigning iterations: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Classification Management Tools - Area Paths
+  server.tool(
+    WORKITEM_TOOLS.list_areas,
+    "List all area paths for a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      depth: z.number().optional().describe("The depth of the area tree to retrieve. Defaults to all levels."),
+    },
+    async ({ project, depth }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const areas = await workItemApi.getClassificationNode(
+          project,
+          TreeStructureGroup.Areas,
+          undefined,
+          depth
+        );
+
+        if (!areas) {
+          return { content: [{ type: "text", text: "No areas found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(areas, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error listing areas: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.create_area,
+    "Create a new area path in a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      areaName: z.string().describe("The name of the area to create."),
+      parentPath: z.string().optional().describe("Optional: The parent area path. If not provided, creates at root level."),
+    },
+    async ({ project, areaName, parentPath }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const area = await workItemApi.createOrUpdateClassificationNode(
+          { name: areaName },
+          project,
+          TreeStructureGroup.Areas,
+          parentPath
+        );
+
+        if (!area) {
+          return { content: [{ type: "text", text: "Area was not created" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(area, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error creating area: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.update_area,
+    "Update an existing area path.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      areaPath: z.string().describe("The path of the area to update (e.g., 'Area1' or 'Area1/SubArea1')."),
+      newName: z.string().describe("The new name for the area."),
+    },
+    async ({ project, areaPath, newName }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const updatedArea = await workItemApi.updateClassificationNode(
+          { name: newName },
+          project,
+          TreeStructureGroup.Areas,
+          areaPath
+        );
+
+        if (!updatedArea) {
+          return { content: [{ type: "text", text: "Area was not updated" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(updatedArea, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating area: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.delete_area,
+    "Delete an area path from a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      areaPath: z.string().describe("The path of the area to delete (e.g., 'Area1' or 'Area1/SubArea1')."),
+      reclassifyId: z.number().optional().describe("Optional: The ID of an area to reclassify work items to before deleting."),
+    },
+    async ({ project, areaPath, reclassifyId }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        await workItemApi.deleteClassificationNode(
+          project,
+          TreeStructureGroup.Areas,
+          areaPath,
+          reclassifyId
+        );
+
+        return {
+          content: [{ type: "text", text: `Area '${areaPath}' deleted successfully` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting area: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // Classification Management Tools - Iterations
+  server.tool(
+    WORKITEM_TOOLS.list_iterations,
+    "List all iteration paths for a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      depth: z.number().optional().describe("The depth of the iteration tree to retrieve. Defaults to all levels."),
+    },
+    async ({ project, depth }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        const iterations = await workItemApi.getClassificationNode(
+          project,
+          TreeStructureGroup.Iterations,
+          undefined,
+          depth
+        );
+
+        if (!iterations) {
+          return { content: [{ type: "text", text: "No iterations found" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(iterations, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error listing iterations: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.update_iteration,
+    "Update an existing iteration path.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      iterationPath: z.string().describe("The path of the iteration to update (e.g., 'Sprint 1' or 'Sprint 1/Week 1')."),
+      newName: z.string().optional().describe("Optional: The new name for the iteration."),
+      startDate: z.string().optional().describe("Optional: The start date of the iteration in ISO format (e.g., '2023-01-01T00:00:00Z')."),
+      finishDate: z.string().optional().describe("Optional: The finish date of the iteration in ISO format (e.g., '2023-01-31T23:59:59Z')."),
+    },
+    async ({ project, iterationPath, newName, startDate, finishDate }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        const updateData: any = {};
+        if (newName) updateData.name = newName;
+        if (startDate || finishDate) {
+          updateData.attributes = {};
+          if (startDate) updateData.attributes.startDate = new Date(startDate);
+          if (finishDate) updateData.attributes.finishDate = new Date(finishDate);
+        }
+
+        const updatedIteration = await workItemApi.updateClassificationNode(
+          updateData,
+          project,
+          TreeStructureGroup.Iterations,
+          iterationPath
+        );
+
+        if (!updatedIteration) {
+          return { content: [{ type: "text", text: "Iteration was not updated" }], isError: true };
+        }
+
+        return {
+          content: [{ type: "text", text: JSON.stringify(updatedIteration, null, 2) }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error updating iteration: ${errorMessage}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    WORKITEM_TOOLS.delete_iteration,
+    "Delete an iteration path from a project.",
+    {
+      project: z.string().describe("The name or ID of the Azure DevOps project."),
+      iterationPath: z.string().describe("The path of the iteration to delete (e.g., 'Sprint 1' or 'Sprint 1/Week 1')."),
+      reclassifyId: z.number().optional().describe("Optional: The ID of an iteration to reclassify work items to before deleting."),
+    },
+    async ({ project, iterationPath, reclassifyId }) => {
+      try {
+        const connection = await connectionProvider();
+        const workItemApi = await connection.getWorkItemTrackingApi();
+        
+        await workItemApi.deleteClassificationNode(
+          project,
+          TreeStructureGroup.Iterations,
+          iterationPath,
+          reclassifyId
+        );
+
+        return {
+          content: [{ type: "text", text: `Iteration '${iterationPath}' deleted successfully` }],
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+
+        return {
+          content: [{ type: "text", text: `Error deleting iteration: ${errorMessage}` }],
           isError: true,
         };
       }

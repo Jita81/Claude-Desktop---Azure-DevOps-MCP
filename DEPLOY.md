@@ -93,3 +93,4 @@ The following files are protected by `.gitignore`:
 - Any file containing "secret", "credentials", "token", "pat"
 
 Always double-check before committing!
+

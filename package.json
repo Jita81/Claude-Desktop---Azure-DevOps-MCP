@@ -1,7 +1,7 @@
 {
-  "name": "@azure-devops/mcp",
-  "version": "2.2.0",
-  "description": "MCP server for interacting with Azure DevOps",
+  "name": "@azure-devops/mcp-workitems",
+  "version": "3.0.0",
+  "description": "MCP server for Azure DevOps Work Item administration",
   "license": "MIT",
   "author": "Microsoft Corporation",
   "homepage": "https://github.com/microsoft/azure-devops-mcp",
@@ -12,7 +12,7 @@
   },
   "type": "module",
   "bin": {
-    "mcp-server-azuredevops": "dist/index.js"
+    "mcp-server-azuredevops-workitems": "dist/index.js"
   },
   "files": [
     "dist"
@@ -38,10 +38,10 @@
   },
   "dependencies": {
     "@azure/identity": "^4.10.0",
+    "@azure/msal-node": "^2.20.0",
     "@modelcontextprotocol/sdk": "1.18.2",
-    "azure-devops-extension-api": "^4.252.0",
-    "azure-devops-extension-sdk": "^4.0.2",
     "azure-devops-node-api": "^15.1.0",
+    "open": "^10.1.0",
     "yargs": "^18.0.0",
     "zod": "^3.25.63",
     "zod-to-json-schema": "^3.24.5"

@@ -1,0 +1,20 @@
+# Don't upload these to Vercel
+node_modules/
+.git/
+.env
+.env.*
+*.log
+test/
+src/
+*.md
+!README.md
+.DS_Store
+coverage/
+.nyc_output/
+
+# Keep these
+!api/
+!dist/
+!package.json
+!vercel.json
+

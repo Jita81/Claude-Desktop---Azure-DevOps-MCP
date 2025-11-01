@@ -12,10 +12,10 @@ import { hideBin } from "yargs/helpers";
 import { createAuthenticator } from "./auth.js";
 import { getOrgTenant } from "./org-tenants.js";
 import { configurePrompts } from "./prompts.js";
+import { configureResources } from "./resources.js";
 import { configureAllTools } from "./tools.js";
 import { UserAgentComposer } from "./useragent.js";
 import { packageVersion } from "./version.js";
-import { DomainsManager } from "./shared/domains.js";
 
 function isGitHubCodespaceEnv(): boolean {
   return process.env.CODESPACES === "true" && !!process.env.CODESPACE_NAME;
@@ -25,22 +25,15 @@ const defaultAuthenticationType = isGitHubCodespaceEnv() ? "azcli" : "interactiv
 
 // Parse command line arguments using yargs
 const argv = yargs(hideBin(process.argv))
-  .scriptName("mcp-server-azuredevops")
+  .scriptName("mcp-server-azuredevops-workitems")
   .usage("Usage: $0 <organization> [options]")
   .version(packageVersion)
-  .command("$0 <organization> [options]", "Azure DevOps MCP Server", (yargs) => {
+  .command("$0 <organization> [options]", "Azure DevOps Work Item MCP Server", (yargs) => {
     yargs.positional("organization", {
       describe: "Azure DevOps organization name",
       type: "string",
       demandOption: true,
     });
-  })
-  .option("domains", {
-    alias: "d",
-    describe: "Domain(s) to enable: 'all' for everything, or specific domains like 'repositories builds work'. Defaults to 'all'.",
-    type: "string",
-    array: true,
-    default: "all",
   })
   .option("authentication", {
     alias: "a",
@@ -60,9 +53,6 @@ const argv = yargs(hideBin(process.argv))
 export const orgName = argv.organization as string;
 const orgUrl = "https://dev.azure.com/" + orgName;
 
-const domainsManager = new DomainsManager(argv.domains);
-export const enabledDomains = domainsManager.getEnabledDomains();
-
 function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAgentComposer: UserAgentComposer, authType: string): () => Promise<azdev.WebApi> {
   return async () => {
     const accessToken = await getAzureDevOpsToken();
@@ -81,7 +71,7 @@ function getAzureDevOpsClient(getAzureDevOpsToken: () => Promise<string>, userAg
 
 async function main() {
   const server = new McpServer({
-    name: "Azure DevOps MCP Server",
+    name: "Azure DevOps Work Item MCP Server",
     version: packageVersion,
   });
 
@@ -93,8 +83,19 @@ async function main() {
   const authenticator = createAuthenticator(argv.authentication, tenantId);
 
   configurePrompts(server);
+  
+  // Configure MCP resources for work items
+  configureResources(
+    server,
+    getAzureDevOpsClient(authenticator, userAgentComposer, argv.authentication)
+  );
 
-  configureAllTools(server, authenticator, getAzureDevOpsClient(authenticator, userAgentComposer, argv.authentication), () => userAgentComposer.userAgent, enabledDomains);
+  configureAllTools(
+    server,
+    authenticator,
+    getAzureDevOpsClient(authenticator, userAgentComposer, argv.authentication),
+    () => userAgentComposer.userAgent
+  );
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

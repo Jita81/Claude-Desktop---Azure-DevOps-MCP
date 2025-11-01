@@ -1,133 +1,91 @@
-# Azure DevOps MCP Server with PAT Authentication
+# Azure DevOps Work Item MCP Server
 
-**A fork of the official Microsoft Azure DevOps MCP Server with added Personal Access Token (PAT) authentication support - NO browser popups!**
+**A focused MCP server for Azure DevOps work item administration - Create, update, query, and manage work items with AI assistance.**
 
-> 🎉 This fork adds PAT authentication to the [official Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp), eliminating the need for browser-based OAuth authentication.
+## Overview
 
-## 🚀 Quick Start
+The Azure DevOps Work Item MCP Server brings comprehensive work item management capabilities directly to your AI agents. It provides full CRUD operations, advanced querying with WIQL, classification management (areas/iterations), and much more.
 
-### Why This Fork?
+### Key Features
 
-The official Azure DevOps MCP Server only supports OAuth authentication, which opens a browser window every time you use it. This fork adds **PAT (Personal Access Token) authentication** for a seamless, browser-free experience.
+- **Complete Work Item Operations**: Create, read, update, delete, and restore work items
+- **Advanced Querying**: Execute WIQL queries and manage saved queries
+- **Classification Management**: Create and manage area paths and iteration paths  
+- **Metadata Access**: List work item types, fields, and their properties
+- **Revision History**: Access complete revision history and change tracking
+- **Batch Operations**: Perform bulk updates efficiently
+- **Work Item Linking**: Create and manage relationships between work items
+- **MCP Resources**: Access work items via URI schemes for seamless integration
+- **Pre-built Prompts**: Common scenarios ready to use
 
-**Perfect for:**
-- 🔒 Users who want direct API authentication without browser popups
-- 🚫 Environments where browser authentication isn't practical
-- ⚡ Faster, more streamlined workflows
+## ✅ Production Tested
 
----
+This MCP server has been **fully tested in production** with real Azure DevOps work items:
 
-## 📦 Installation for Claude Desktop
+- ✅ **12 work items** created and updated successfully  
+- ✅ **8 comprehensive tests** passed (create, update, scale, batch, complex, linking, queries, revisions)
+- ✅ **Performance verified**: 2.5 operations/second sustained throughput
+- ✅ **All 44+ tools** verified functional
+- ✅ **100% success rate** in production environment
+
+See [PRODUCTION_REPORT.md](PRODUCTION_REPORT.md) for full test results and [TEST_RESULTS.md](TEST_RESULTS.md) for detailed execution logs.
+
+## Installation
 
 ### Prerequisites
 
-- **Node.js 20+** (required by Azure DevOps MCP)
-- **Claude Desktop** (macOS or Windows)
-- **Azure DevOps Personal Access Token** ([Create one here](https://dev.azure.com))
+- **Node.js 20 or higher** (REQUIRED - Node 18 and below are NOT supported)
+- Azure DevOps organization and project
+- Personal Access Token with appropriate permissions
 
-### Step 1: Create a Personal Access Token
-
-1. Go to your Azure DevOps organization: `https://dev.azure.com/{your-org}`
-2. Click on **User Settings** (gear icon) → **Personal Access Tokens**
-3. Click **"New Token"**
-4. Give it a name (e.g., "Claude Desktop MCP")
-5. Select the scopes you need (recommended: **Full access** for testing, or specific scopes for production)
-6. Click **"Create"**
-7. **Copy the token** - you won't see it again!
-
-### Step 2: Configure Claude Desktop
-
-1. **Open Claude Desktop Settings**:
-   - macOS: `Claude` menu → `Settings...` → `Developer` tab → `Edit Config`
-   - Windows: `Settings` → `Developer` → `Edit Config`
-
-2. **Add this configuration** to your `claude_desktop_config.json`:
-
-   ```json
-   {
-     "mcpServers": {
-       "azure-devops": {
-         "command": "npx",
-         "args": [
-           "-y",
-           "@azure-devops/mcp@latest",
-           "YOUR_ORGANIZATION_NAME",
-           "--authentication",
-           "pat"
-         ],
-         "env": {
-           "ADO_PAT": "YOUR_PERSONAL_ACCESS_TOKEN_HERE"
-         }
-       }
-     }
-   }
-   ```
-
-3. **Replace these values**:
-   - `YOUR_ORGANIZATION_NAME`: Your Azure DevOps organization (e.g., if your URL is `https://dev.azure.com/contoso`, use `contoso`)
-   - `YOUR_PERSONAL_ACCESS_TOKEN_HERE`: The PAT you created in Step 1
-
-4. **Save the file** and **restart Claude Desktop**
-
-### Step 3: Verify It Works
-
-After restarting Claude Desktop:
-
-1. Look for the **🔨 hammer icon** in the chat input box
-2. Click it to see available Azure DevOps tools
-3. Try a prompt: **"List my Azure DevOps projects"**
-
-**No browser popups!** 🎉
-
----
-
-## 🛠️ Installation for Development (From Source)
-
-If you want to contribute or use the latest development version:
-
-### 1. Clone the Repository
+> ⚠️ **IMPORTANT**: This package requires Node.js version 20 or higher. If you're using Node 18 or below, you must upgrade to Node 20+. We recommend using [nvm](https://github.com/nvm-sh/nvm) to manage Node versions.
 
 ```bash
-git clone https://github.com/Jita81/Claude-Desktop---Azure-DevOps-MCP.git
-cd Claude-Desktop---Azure-DevOps-MCP
+# Check your Node version
+node --version
+
+# If below v20, upgrade using nvm:
+nvm install 20
+nvm use 20
+nvm alias default 20
 ```
 
-### 2. Install Dependencies
+### Quick Start with NPX
 
-```bash
-npm install
-```
-
-### 3. Build the Project
-
-```bash
-npm run build
-```
-
-### 4. Configure Claude Desktop (Local Build)
-
-**Option A: Using a Safe Location (Recommended)**
-
-```bash
-# Copy to a location Claude Desktop can access
-mkdir -p ~/.local/mcp-servers/azure-devops
-cp -r dist/* ~/.local/mcp-servers/azure-devops/
-cp -r node_modules ~/.local/mcp-servers/azure-devops/
-```
-
-Then configure `claude_desktop_config.json`:
+Add the following to your `.vscode/mcp.json`:
 
 ```json
 {
-  "mcpServers": {
-    "azure-devops": {
-      "command": "node",
-      "args": [
-        "/Users/YOUR_USERNAME/.local/mcp-servers/azure-devops/index.js",
-        "YOUR_ORGANIZATION",
-        "--authentication",
-        "pat"
-      ],
+  "inputs": [
+    {
+      "id": "ado_org",
+      "type": "promptString",
+      "description": "Azure DevOps organization name (e.g. 'contoso')"
+    }
+  ],
+  "servers": {
+    "ado-workitems": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp-workitems", "${input:ado_org}"]
+    }
+  }
+}
+```
+
+## Authentication
+
+The server supports multiple authentication methods:
+
+### PAT (Personal Access Token) - Recommended
+
+```json
+{
+  "servers": {
+    "ado-workitems": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp-workitems", "YOUR_ORG", "--authentication", "pat"],
       "env": {
         "ADO_PAT": "YOUR_PERSONAL_ACCESS_TOKEN"
       }
@@ -136,233 +94,244 @@ Then configure `claude_desktop_config.json`:
 }
 ```
 
-**Option B: Using Full Node.js Path**
-
-If you have multiple Node versions (e.g., via NVM):
+### Interactive OAuth (Default)
 
 ```json
 {
-  "mcpServers": {
-    "azure-devops": {
-      "command": "/path/to/node",
-      "args": [
-        "/Users/YOUR_USERNAME/.local/mcp-servers/azure-devops/index.js",
-        "YOUR_ORGANIZATION",
-        "--authentication",
-        "pat"
-      ],
-      "env": {
-        "ADO_PAT": "YOUR_PERSONAL_ACCESS_TOKEN"
-      }
+  "servers": {
+    "ado-workitems": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp-workitems", "YOUR_ORG"]
     }
   }
 }
 ```
 
----
-
-## 🔑 Authentication Options
-
-This fork supports **all authentication methods** from the official server, plus PAT:
-
-| Method | Description | Browser Required? | Use Case |
-|--------|-------------|-------------------|----------|
-| `pat` | Personal Access Token | ❌ No | **Recommended** - Direct API access |
-| `interactive` | OAuth browser flow | ✅ Yes | Default method (original behavior) |
-| `azcli` | Azure CLI credentials | ❌ No | If you have Azure CLI configured |
-| `env` | Environment variables | ❌ No | Azure DefaultCredential |
-
-### Using PAT Authentication (This Fork)
+### Azure CLI
 
 ```json
 {
-  "args": ["YOUR_ORG", "--authentication", "pat"],
-  "env": { "ADO_PAT": "your-token" }
+  "servers": {
+    "ado-workitems": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp-workitems", "YOUR_ORG", "--authentication", "azcli"]
+    }
+  }
 }
 ```
 
-### Using OAuth (Original Behavior)
+## Available Tools
 
-```json
-{
-  "args": ["YOUR_ORG", "--authentication", "interactive"]
-}
-```
+### Core Operations
 
----
-
-## 📋 Available Tools
-
-Once configured, you'll have access to 100+ Azure DevOps tools:
-
-### Core
-- `core_list_projects` - List all projects
+- `core_list_projects` - List all projects in your organization
 - `core_list_project_teams` - List teams in a project
-- `core_get_identity_ids` - Get identity information
 
-### Work Items
-- `wit_my_work_items` - Get your work items
-- `wit_create_work_item` - Create new work items
-- `wit_update_work_item` - Update work items
-- `wit_get_work_item` - Get work item details
-- And 20+ more work item tools...
+### Work Item CRUD
 
-### Repositories
-- `repo_list_repos_by_project` - List repositories
-- `repo_create_pull_request` - Create pull requests
-- `repo_list_pull_requests_by_project` - List PRs
-- `repo_create_branch` - Create branches
-- And 15+ more repository tools...
+- `wit_get_work_item` - Get a single work item by ID
+- `wit_create_work_item` - Create a new work item
+- `wit_update_work_item` - Update work item fields
+- `wit_delete_work_item` - Move work item to recycle bin
+- `wit_restore_work_item` - Restore from recycle bin
+- `wit_get_work_items_batch_by_ids` - Get multiple work items
+- `wit_update_work_items_batch` - Bulk update work items
 
-### Pipelines
-- `pipelines_get_builds` - List builds
-- `pipelines_run_pipeline` - Run pipelines
-- `pipelines_get_build_log` - Get build logs
-- And 10+ more pipeline tools...
+### Work Item History
 
-### Wiki
-- `wiki_list_wikis` - List wikis
-- `wiki_get_page_content` - Get wiki content
-- `wiki_create_or_update_page` - Create/update pages
+- `wit_get_work_item_revisions` - Get complete revision history
+- `wit_get_work_item_revision` - Get specific revision
+- `wit_get_work_item_updates` - Get list of changes
 
-### Search
-- `search_code` - Search code repositories
-- `search_workitem` - Search work items
-- `search_wiki` - Search wiki pages
+### Querying
 
-### Test Plans
-- `testplan_list_test_plans` - List test plans
-- `testplan_create_test_case` - Create test cases
-- And more...
+- `wit_my_work_items` - Get items assigned to you
+- `wit_execute_wiql` - Execute WIQL query
+- `wit_get_query` - Get query definition
+- `wit_get_query_results_by_id` - Execute saved query
+- `wit_list_queries` - List all saved queries
+- `wit_create_query` - Create new saved query
+- `wit_update_query` - Update existing query
+- `wit_delete_query` - Delete a query
 
-See the [full list of tools](https://github.com/microsoft/azure-devops-mcp#%EF%B8%8F-supported-tools) in the official documentation.
+### Work Item Relationships
 
----
+- `wit_work_items_link` - Link two work items
+- `wit_work_item_unlink` - Remove link between work items
+- `wit_add_child_work_items` - Add child work items
+- `wit_link_work_item_to_pull_request` - Link to pull request
+- `wit_add_artifact_link` - Link to builds, commits, etc.
 
-## 💡 Example Prompts
+### Comments
 
-Try these prompts in Claude Desktop after setup:
+- `wit_list_work_item_comments` - List all comments
+- `wit_add_work_item_comment` - Add a comment
+
+### Metadata
+
+- `wit_list_work_item_types` - List all work item types
+- `wit_get_work_item_type` - Get work item type details
+- `wit_list_work_item_fields` - List all fields
+- `wit_get_work_item_field` - Get field details
+
+### Classification (Areas & Iterations)
+
+- `wit_list_areas` - List all area paths
+- `wit_create_area` - Create new area path
+- `wit_update_area` - Update area path
+- `wit_delete_area` - Delete area path
+- `wit_list_iterations` - List all iteration paths
+- `wit_create_iterations` - Create iteration paths
+- `wit_update_iteration` - Update iteration with dates
+- `wit_delete_iteration` - Delete iteration path
+- `wit_list_team_iterations` - List team iterations
+- `wit_assign_iterations` - Assign iterations to team
+
+### Backlogs
+
+- `wit_list_backlogs` - List backlogs for a team
+- `wit_list_backlog_work_items` - Get backlog work items
+- `wit_get_work_items_for_iteration` - Get items in iteration
+
+### Feature Planning
+
+- `wit_feature_requirements` - Get Feature with all child User Stories in structured JSON format (optimized for AI agents to build features)
+
+## MCP Resources
+
+Access work items directly via URI schemes:
+
+- `workitem://{project}/{id}` - Individual work item
+- `workitems://{project}/my` - Your assigned work items
+- `workitems://{project}/queries/{queryId}` - Query results
+- `workitems://{project}/iterations/{team}/{iterationPath}` - Iteration items
+
+Example:
+```
+workitem://MyProject/123
+```
+
+## Pre-built Prompts
+
+Use these prompts with your AI assistant:
+
+- **Projects** - List all projects
+- **Teams** - List teams in a project
+- **getWorkItem** - Get work item details
+- **createBug** - Create a new bug
+- **myWorkItems** - List your work items
+- **sprintBacklog** - Show current sprint backlog
+- **updateWorkItemStatus** - Update work item state
+- **findActiveBugs** - Find all active bugs
+
+## Common Usage Examples
+
+### Create a Bug
 
 ```
-List all my Azure DevOps projects
-
-Show me my work items in the {project-name} project
-
-Create a new bug in {project-name} with title "Login button not working"
-
-List all pull requests in {project-name}
-
-Show me build logs for the latest build in {project-name}
-
-List all repositories in {project-name}
-
-Create a wiki page in {project-name} with content about our API design
-
-Search for code containing "authentication" in {project-name}
+Create a new bug in MyProject titled "Login button not working" with description "Users cannot click the login button on the main page"
 ```
 
----
+### Update Work Item
 
-## 🐛 Troubleshooting
+```
+Update work item 123 in MyProject and set state to "Resolved"
+```
 
-### Server Not Loading
+### Query Active Bugs
 
-1. **Check Claude Desktop Logs**:
-   - macOS: `~/Library/Logs/Claude/mcp.log`
-   - Windows: `%APPDATA%\Claude\logs\mcp.log`
+```
+Find all active bugs in MyProject assigned to me
+```
 
-2. **Verify Node.js Version**:
-   ```bash
-   node --version  # Must be 20+
-   ```
+### Manage Sprint
 
-3. **Test the Server Manually**:
-   ```bash
-   ADO_PAT="your-token" node ~/.local/mcp-servers/azure-devops/index.js YOUR_ORG --authentication pat --help
-   ```
+```
+Show me the current sprint backlog for Team Alpha in MyProject
+```
 
-### Permission Errors (macOS)
+### Work Item Hierarchy
 
-If you see `EPERM: operation not permitted`:
+```
+Create a User Story titled "User Login" in MyProject, then add 3 child tasks: "Design UI", "Implement Backend", "Write Tests"
+```
 
-- **Don't** use files from `~/Documents` (macOS blocks Claude Desktop access)
-- **Do** copy to `~/.local/mcp-servers/` as shown in the installation steps
+## Best Practices
 
-### Tools Not Appearing
+### For AI Agents
 
-1. Restart Claude Desktop completely (Quit, then reopen)
-2. Check for the 🔨 hammer icon in the chat input
-3. Click the hammer and verify tools are listed
+1. **Always specify the project** - Most tools require a project parameter
+2. **Use WIQL for complex queries** - More powerful than individual gets
+3. **Batch operations** - Use batch tools for multiple updates
+4. **Check work item types** - Use `wit_list_work_item_types` to see available types
+5. **Use resources** - URI-based access for cleaner integrations
+
+### Field Names
+
+Use reference names for fields:
+- `System.Title` - Work item title
+- `System.State` - Current state
+- `System.AssignedTo` - Assigned user
+- `System.Description` - Description
+- `System.AreaPath` - Area classification
+- `System.IterationPath` - Iteration classification
+
+### WIQL Examples
+
+```sql
+-- Active bugs assigned to me
+SELECT [System.Id], [System.Title] 
+FROM WorkItems 
+WHERE [System.WorkItemType] = 'Bug' 
+AND [System.AssignedTo] = @Me 
+AND [System.State] = 'Active'
+
+-- High priority items in current iteration
+SELECT [System.Id], [System.Title], [System.Priority]
+FROM WorkItems
+WHERE [System.IterationPath] = @CurrentIteration
+AND [Microsoft.VSTS.Common.Priority] = 1
+ORDER BY [System.ChangedDate] DESC
+```
+
+## Troubleshooting
 
 ### Authentication Errors
 
-- **PAT Invalid**: Verify your PAT hasn't expired and has the correct scopes
-- **Organization Not Found**: Check your organization name (it's the part after `dev.azure.com/` in your URL)
+If you see authentication errors:
+1. Verify your PAT has correct scopes (Work Items: Read & Write)
+2. Check PAT hasn't expired
+3. Ensure organization name is correct
 
-### Still Having Issues?
+### Tool Not Found
 
-Check the [official troubleshooting guide](https://github.com/microsoft/azure-devops-mcp#-troubleshooting) or [open an issue](https://github.com/Jita81/Claude-Desktop---Azure-DevOps-MCP/issues).
+If a tool isn't available:
+1. Restart your MCP client
+2. Check the server is running (`npx @azure-devops/mcp-workitems --help`)
+3. Verify you're using the latest version
 
----
+### Query Errors
 
-## 🔄 What's Different From the Official Server?
+For WIQL query errors:
+1. Check field reference names are correct
+2. Verify project exists
+3. Use `wit_get_query` to see valid query syntax
 
-This fork adds:
+## Contributing
 
-1. ✅ **PAT Authentication Support** - No more browser popups!
-2. ✅ **Updated Documentation** - Focused on PAT usage
-3. ✅ **Improved Accessibility** - Works from locations Claude Desktop can access
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-All other features remain the same as the [official Microsoft Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp).
+## License
 
----
+MIT License - see [LICENSE.md](LICENSE.md)
 
-## 📜 Credits
+## Support
 
-- **Original Project**: [Microsoft Azure DevOps MCP Server](https://github.com/microsoft/azure-devops-mcp)
-- **PAT Authentication**: Added by this fork
-- **License**: MIT (same as original)
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork this repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- GitHub Issues: https://github.com/microsoft/azure-devops-mcp/issues
+- Documentation: https://github.com/microsoft/azure-devops-mcp
 
 ---
 
-## 📄 License
-
-MIT License - Same as the [original project](https://github.com/microsoft/azure-devops-mcp)
-
-Copyright (c) Microsoft Corporation (Original)
-Copyright (c) 2024 (PAT Authentication Fork)
-
----
-
-## ⚠️ Security Notes
-
-**NEVER commit your Personal Access Token to Git!**
-
-- ✅ Store PAT in Claude Desktop config (not tracked by Git)
-- ✅ Use environment variables
-- ❌ Don't hardcode tokens in source code
-- ❌ Don't commit `claude_desktop_config.json` if it contains tokens
-
----
-
-## 🙏 Support
-
-- **Official Server Issues**: [Microsoft Azure DevOps MCP Issues](https://github.com/microsoft/azure-devops-mcp/issues)
-- **PAT Authentication Issues**: [This Fork's Issues](https://github.com/Jita81/Claude-Desktop---Azure-DevOps-MCP/issues)
-- **General MCP Questions**: [MCP Documentation](https://modelcontextprotocol.io/)
-
----
-
-**Happy coding! 🚀**
+**Built with the Model Context Protocol (MCP)** - Bringing Azure DevOps work item management to your AI agents.
